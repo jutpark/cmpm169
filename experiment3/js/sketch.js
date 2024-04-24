@@ -86,7 +86,7 @@ let numRows, numCols;
 
 function preload() {
   tilesetImage = loadImage(
-    "C:\Users\Justin\Desktop\cmpm169\experiment3\js\tilesetP8.png"
+    "tilesetP8.png"
   );
 }
 
