@@ -18,6 +18,16 @@ let camera_velocity;
 // Transforms between coordinate systems
 // These are actually slightly weirder than in full 3d...
 /////////////////////////////
+function setup() {  
+  canvasContainer = $("#canvas-container");
+  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
+  canvas.parent("canvas-container");
+  $(window).resize(function() {
+    resizeScreen();
+  });
+  resizeScreen();
+}
+
 function worldToScreen([world_x, world_y], [camera_x, camera_y]) {
   let i = (world_x - world_y) * tile_width_step_main;
   let j = (world_x + world_y) * tile_height_step_main;
