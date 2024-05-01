@@ -62,8 +62,15 @@ function preload() {
 }
 
 function setup() {
-  let canvas = createCanvas(800, 400);
-  canvas.parent("container");
+  canvasContainer = $("#canvas-container");
+  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
+  canvas.parent("canvas-container");
+  $(window).resize(function() {
+    resizeScreen();
+  });
+  resizeScreen();
+
+
 
   camera_offset = new p5.Vector(-width / 2, height / 2);
   camera_velocity = new p5.Vector(0, 0);
