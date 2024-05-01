@@ -46,17 +46,6 @@ function resizeScreen() {
   // redrawCanvas(); // Redraw everything based on new size
 }
 
-
-function setup() {  
-  canvasContainer = $("#canvas-container");
-  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
-  canvas.parent("canvas-container");
-  $(window).resize(function() {
-    resizeScreen();
-  });
-  resizeScreen();
-}
-
 function worldToScreen([world_x, world_y], [camera_x, camera_y]) {
   let i = (world_x - world_y) * tile_width_step_main;
   let j = (world_x + world_y) * tile_height_step_main;
