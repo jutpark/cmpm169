@@ -13,11 +13,20 @@ let tile_height_step_main; // A height step is half a tile's height
 let tile_rows, tile_columns;
 let camera_offset;
 let camera_velocity;
-
+const containerId = "#canvas-container";
 /////////////////////////////
 // Transforms between coordinate systems
 // These are actually slightly weirder than in full 3d...
 /////////////////////////////
+
+function resizeScreen() {
+  centerHorz = canvasContainer.width() / 2; // Adjusted for drawing logic
+  centerVert = canvasContainer.height() / 2; // Adjusted for drawing logic
+  console.log("Resizing...");
+  resizeCanvas(canvasContainer.width(), canvasContainer.height());
+  // redrawCanvas(); // Redraw everything based on new size
+}
+
 function worldToScreen([world_x, world_y], [camera_x, camera_y]) {
   let i = (world_x - world_y) * tile_width_step_main;
   let j = (world_x + world_y) * tile_height_step_main;
@@ -62,15 +71,11 @@ function preload() {
 }
 
 function setup() {
-  canvasContainer = $("#canvas-container");
+  // place our canvas, making it fit our container
+  canvasContainer = $(containerId);
   let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
-  canvas.parent("canvas-container");
-  $(window).resize(function() {
-    resizeScreen();
-  });
-  resizeScreen();
-
-
+  canvas.parent(containerId);
+  // resize canvas is the page is resized
 
   camera_offset = new p5.Vector(-width / 2, height / 2);
   camera_velocity = new p5.Vector(0, 0);
@@ -79,21 +84,19 @@ function setup() {
     window.p3_setup();
   }
 
-  let label = createP();
-  label.html("World key: ");
-  label.parent("container");
-
-  let input = createInput("xyzzy");
-  input.parent(label);
-  input.input(() => {
-    rebuildWorld(input.value());
+  let inputKey = $("#world-seed");
+  // event handler if the input key changes
+  inputKey.change(() => {
+    rebuildWorld(inputKey.val());
   });
 
-  createP("Arrow keys scroll. Clicking changes tiles.").parent("container");
+  rebuildWorld(inputKey.val());
 
-  rebuildWorld(input.value());
+  $(window).resize(function() {
+    resizeScreen();
+  });
+  resizeScreen();
 }
-
 function rebuildWorld(key) {
   if (window.p3_worldKeyChanged) {
     window.p3_worldKeyChanged(key);
