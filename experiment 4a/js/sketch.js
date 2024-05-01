@@ -1,289 +1,356 @@
-// sketch.js - purpose and description here
-// Author: Your Name
-// Date:
+"use strict";
 
-// Here is how you might set up an OOP p5.js project
-// Note that p5.js looks for a file called sketch.js
+/* global p5 */
+/* exported preload, setup, draw, mouseClicked */
 
-// Constants - User-servicable parts
-// In a longer project I like to put these in a separate file
-const VALUE1 = 1;
-const VALUE2 = 2;
+// Project base code provided by {amsmith,ikarth}@ucsc.edu
 
-// Globals
-let myInstance;
-let canvasContainer;
-var centerHorz, centerVert;
 
-class MyClass {
-    constructor(param1, param2) {
-        this.property1 = param1;
-        this.property2 = param2;
-    }
+let tile_width_step_main; // A width step is half a tile's width
+let tile_height_step_main; // A height step is half a tile's height
 
-    myMethod() {
-        // code to run when method is called
-    }
+// Global variables. These will mostly be overwritten in setup().
+let tile_rows, tile_columns;
+let camera_offset;
+let camera_velocity;
+
+/////////////////////////////
+// Transforms between coordinate systems
+// These are actually slightly weirder than in full 3d...
+/////////////////////////////
+function worldToScreen([world_x, world_y], [camera_x, camera_y]) {
+  let i = (world_x - world_y) * tile_width_step_main;
+  let j = (world_x + world_y) * tile_height_step_main;
+  return [i + camera_x, j + camera_y];
 }
 
-function resizeScreen() {
-  centerHorz = canvasContainer.width() / 2; // Adjusted for drawing logic
-  centerVert = canvasContainer.height() / 2; // Adjusted for drawing logic
-  console.log("Resizing...");
-  resizeCanvas(canvasContainer.width(), canvasContainer.height());
-  // redrawCanvas(); // Redraw everything based on new size
+function worldToCamera([world_x, world_y], [camera_x, camera_y]) {
+  let i = (world_x - world_y) * tile_width_step_main;
+  let j = (world_x + world_y) * tile_height_step_main;
+  return [i, j];
 }
 
-// setup() function is called once when the program starts
-function setup() {
-  // place our canvas, making it fit our container
-  canvasContainer = $("#canvas-container");
-  let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
-  canvas.parent("canvas-container");
-  // resize canvas is the page is resized
-
-  // create an instance of the class
-  myInstance = new MyClass("VALUE1", "VALUE2");
-
-  $(window).resize(function() {
-    resizeScreen();
-  });
-  resizeScreen();
+function tileRenderingOrder(offset) {
+  return [offset[1] - offset[0], offset[0] + offset[1]];
 }
 
-// draw() function is called repeatedly, it's the main animation loop
-function draw() {
-  background(220);    
-  // call a method on the instance
-  myInstance.myMethod();
-
-  // Set up rotation for the rectangle
-  push(); // Save the current drawing context
-  translate(centerHorz, centerVert); // Move the origin to the rectangle's center
-  rotate(frameCount / 100.0); // Rotate by frameCount to animate the rotation
-  fill(234, 31, 81);
-  noStroke();
-  rect(-125, -125, 250, 250); // Draw the rectangle centered on the new origin
-  pop(); // Restore the original drawing context
-
-  // The text is not affected by the translate and rotate
-  fill(255);
-  textStyle(BOLD);
-  textSize(140);
-  text("p5*", centerHorz - 105, centerVert + 40);
+function screenToWorld([screen_x, screen_y], [camera_x, camera_y]) {
+  screen_x -= camera_x;
+  screen_y -= camera_y;
+  screen_x /= tile_width_step_main * 2;
+  screen_y /= tile_height_step_main * 2;
+  screen_y += 0.5;
+  return [Math.floor(screen_y + screen_x), Math.floor(screen_y - screen_x)];
 }
 
-// mousePressed() function is called once after every time a mouse button is pressed
-function mousePressed() {
-    // code to run when mouse is pressed
+function cameraToWorldOffset([camera_x, camera_y]) {
+  let world_x = camera_x / (tile_width_step_main * 2);
+  let world_y = camera_y / (tile_height_step_main * 2);
+  return { x: Math.round(world_x), y: Math.round(world_y) };
 }
 
-
-let seed = 0;
-let tilesetImage;
-let currentGrid = [];
-let numRows, numCols;
+function worldOffsetToCamera([world_x, world_y]) {
+  let camera_x = world_x * (tile_width_step_main * 2);
+  let camera_y = world_y * (tile_height_step_main * 2);
+  return new p5.Vector(camera_x, camera_y);
+}
 
 function preload() {
-  tilesetImage = loadImage(
-    "tilesetP8.png"
-  );
-}
-
-function reseed() {
-  seed = (seed | 0) + 1109;
-  randomSeed(seed);
-  noiseSeed(seed);
-  select("#seedReport").html("seed " + seed);
-  regenerateGrid();
-}
-
-function regenerateGrid() {
-  select("#asciiBox").value(gridToString(generateGrid(numCols, numRows)));
-  reparseGrid();
-}
-
-function reparseGrid() {
-  currentGrid = stringToGrid(select("#asciiBox").value());
-}
-
-function gridToString(grid) {
-  let rows = [];
-  for (let i = 0; i < grid.length; i++) {
-    rows.push(grid[i].join(""));
+  if (window.p3_preload) {
+    window.p3_preload();
   }
-  return rows.join("\n");
-}
-
-function stringToGrid(str) {
-  let grid = [];
-  let lines = str.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    let row = [];
-    let chars = lines[i].split("");
-    for (let j = 0; j < chars.length; j++) {
-      row.push(chars[j]);
-    }
-    grid.push(row);
-  }
-  return grid;
 }
 
 function setup() {
-  numCols = select("#asciiBox").attribute("rows") | 0;
-  numRows = select("#asciiBox").attribute("cols") | 0;
+  let canvas = createCanvas(800, 400);
+  canvas.parent("container");
 
-  createCanvas(16 * numCols, 16 * numRows).parent("canvasContainer");
-  select("canvas").elt.getContext("2d").imageSmoothingEnabled = false;
+  camera_offset = new p5.Vector(-width / 2, height / 2);
+  camera_velocity = new p5.Vector(0, 0);
 
-  select("#reseedButton").mousePressed(reseed);
-  select("#asciiBox").input(reparseGrid);
+  if (window.p3_setup) {
+    window.p3_setup();
+  }
 
-  reseed();
+  let label = createP();
+  label.html("World key: ");
+  label.parent("container");
+
+  let input = createInput("xyzzy");
+  input.parent(label);
+  input.input(() => {
+    rebuildWorld(input.value());
+  });
+
+  createP("Arrow keys scroll. Clicking changes tiles.").parent("container");
+
+  rebuildWorld(input.value());
 }
 
+function rebuildWorld(key) {
+  if (window.p3_worldKeyChanged) {
+    window.p3_worldKeyChanged(key);
+  }
+  tile_width_step_main = window.p3_tileWidth ? window.p3_tileWidth() : 32;
+  tile_height_step_main = window.p3_tileHeight ? window.p3_tileHeight() : 14.5;
+  tile_columns = Math.ceil(width / (tile_width_step_main * 2));
+  tile_rows = Math.ceil(height / (tile_height_step_main * 2));
+}
+
+function mouseClicked() {
+  let world_pos = screenToWorld(
+    [0 - mouseX, mouseY],
+    [camera_offset.x, camera_offset.y]
+  );
+
+  if (window.p3_tileClicked) {
+    window.p3_tileClicked(world_pos[0], world_pos[1]);
+  }
+  return false;
+}
 
 function draw() {
-  randomSeed(seed);
-  drawGrid(currentGrid);
-}
-
-function placeTile(i, j, ti, tj) {
-  image(tilesetImage, 16 * j, 16 * i, 16, 16, 8 * ti, 8 * tj, 8, 8);
-}
-
-
-/* exported generateGrid, drawGrid */
-/* global placeTile */
-
-function generateGrid(numCols, numRows) {
-  let grid = [];
-  for (let i = 0; i < numRows; i++) {
-    let row = [];
-    for (let j = 0; j < numCols; j++) {
-      if(j>numCols/6 && i>numRows/6 && j<(3*numCols/6) && i<(3*numRows/6)){
-        row.push("l");
-      }
-      else if(j>numCols/2 && i>numRows/2 && j<(2*numCols/2) && i<(2*numRows/2)){
-        row.push("l");
-      }else if(j>numCols/2 && i>numRows/7 && j<(3*numCols/2) && i<(1*numRows/2)){
-        row.push("l");
-      }else{
-        row.push(".");
-      }
-      
-    }
-    
-    grid.push(row);
+  // Keyboard controls!
+  if (keyIsDown(LEFT_ARROW)) {
+    camera_velocity.x -= 1;
   }
-  let a=Math.floor(Math.random() * 3);
-  a+=5;
-  let b=Math.floor(Math.random() * 6);
-  b+=12;
-  grid[a][10]="l";
-  grid[10][b]="l";
-  
-  grid[10][7]="l";
-  grid[11][7]="l";
-  grid[12][7]="l";
-  grid[13][7]="l";
-  grid[13][8]="l";
-  grid[13][9]="l";
-  grid[13][10]="l";
-
-  return grid;
-}
-
-function drawGrid(grid) {
-
-  background(128);
-  const g = 10;
-  const t = millis() / 1000.0;
-  let f = 0;
-  let l = 0;
-  let r = 0;
-  let c = 0;
-  let h = 0;
-  let b=0;
-
-  noStroke();
-  for (let i = 0; i < grid.length; i++) {
-    for (let j = 0; j < grid[i].length; j++) {
-      placeTile(i, j, (4 * pow(noise(t / 5, i, j / 2 + t), 3)) | 7, 2);
-
-      if (gridCheck(grid, i, j, "l")) {
-        if(random(1)>0.99){
-          c=i;
-          h=j;
-          b=1;
-        }
-        drawContext(grid, i, j, "l", 9, 3, true);
-        
-      } else {
-        placeTile(i, j, (4 * pow(random(), g)) | 0, 1);
-        
-      }
-
-      if (gridCheck(grid, i, j, ".")) {
-        placeTile(i, j, (4 * pow(random(), g)) | 0, 10);
-        
-      } else {
-        drawContext(grid, i, j, ".", 4, 9);
-      }
-    }
+  if (keyIsDown(RIGHT_ARROW)) {
+    camera_velocity.x += 1;
   }
-  if(b==1){
-    placeTile(c, h, (2 * pow(random(), t/5)) | 3, 29);
+  if (keyIsDown(DOWN_ARROW)) {
+    camera_velocity.y -= 1;
   }
-  if(r==1){
-    placeTile(f, l, (1 * pow(random(), g)) | 17, 0);
+  if (keyIsDown(UP_ARROW)) {
+    camera_velocity.y += 1;
   }
-}
 
-function drawContext(grid, i, j, target, dti, dtj, invert = false) {
-  let code = gridCode(grid, i, j, target);
-  if (invert) {
-    code = ~code & 0xf;
+  let camera_delta = new p5.Vector(0, 0);
+  camera_velocity.add(camera_delta);
+  camera_offset.add(camera_velocity);
+  camera_velocity.mult(0.95); // cheap easing
+  if (camera_velocity.mag() < 0.01) {
+    camera_velocity.setMag(0);
   }
-  let [ti,tj] = lookup[code];
-  placeTile(i, j, dti + ti, dtj + tj);
-}
 
-
-
-function gridCode(grid, i, j, target) {
-  return (
-    (gridCheck(grid, i - 1, j, target) << 0) +
-    (gridCheck(grid, i, j - 1, target) << 1) +
-    (gridCheck(grid, i, j + 1, target) << 2) +
-    (gridCheck(grid, i + 1, j, target) << 3)
+  let world_pos = screenToWorld(
+    [0 - mouseX, mouseY],
+    [camera_offset.x, camera_offset.y]
   );
-}
+  let world_offset = cameraToWorldOffset([camera_offset.x, camera_offset.y]);
 
-function gridCheck(grid, i, j, target) {
-  if (i >= 0 && i < grid.length && j >= 0 && j < grid[i].length) {
-    return grid[i][j] == target;
-  } else {
-    return false;
+  background(100);
+
+  if (window.p3_drawBefore) {
+    window.p3_drawBefore();
+  }
+
+  let overdraw = 0.1;
+
+  let y0 = Math.floor((0 - overdraw) * tile_rows);
+  let y1 = Math.floor((1 + overdraw) * tile_rows);
+  let x0 = Math.floor((0 - overdraw) * tile_columns);
+  let x1 = Math.floor((1 + overdraw) * tile_columns);
+
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      drawTile(tileRenderingOrder([x + world_offset.x, y - world_offset.y]), [
+        camera_offset.x,
+        camera_offset.y
+      ]); // odd row
+    }
+    for (let x = x0; x < x1; x++) {
+      drawTile(
+        tileRenderingOrder([
+          x + 0.5 + world_offset.x,
+          y + 0.5 - world_offset.y
+        ]),
+        [camera_offset.x, camera_offset.y]
+      ); // even rows are offset horizontally
+    }
+  }
+
+  describeMouseTile(world_pos, [camera_offset.x, camera_offset.y]);
+
+  if (window.p3_drawAfter) {
+    window.p3_drawAfter();
   }
 }
 
-const lookup = [
-  [1, 1],
-  [1, 0], // bottom
-  [0, 1], // right
-  [0, 0], // right+bottom
-  [2, 1], // left
-  [2, 0], // left+bottom
-  [1, 1],
-  [1, 0], // * 
-  [1, 2], // top
-  [1, 1],
-  [0, 2], // right+top
-  [0, 1], // *
-  [2, 2], // top+left
-  [2, 1], // *
-  [1, 2], // *
-  [1, 1]
+// Display a discription of the tile at world_x, world_y.
+function describeMouseTile([world_x, world_y], [camera_x, camera_y]) {
+  let [screen_x, screen_y] = worldToScreen(
+    [world_x, world_y],
+    [camera_x, camera_y]
+  );
+  drawTileDescription([world_x, world_y], [0 - screen_x, screen_y]);
+}
+
+function drawTileDescription([world_x, world_y], [screen_x, screen_y]) {
+  push();
+  translate(screen_x, screen_y);
+  if (window.p3_drawSelectedTile) {
+    window.p3_drawSelectedTile(world_x, world_y, screen_x, screen_y);
+  }
+  pop();
+}
+
+// Draw a tile, mostly by calling the user's drawing code.
+function drawTile([world_x, world_y], [camera_x, camera_y]) {
+  let [screen_x, screen_y] = worldToScreen(
+    [world_x, world_y],
+    [camera_x, camera_y]
+  );
+  push();
+  translate(0 - screen_x, screen_y);
+  if (window.p3_drawTile) {
+    window.p3_drawTile(world_x, world_y, -screen_x, screen_y);
+  }
+  pop();
+}
+"use strict";
+
+/* global XXH */
+/* exported --
+    p3_preload
+    p3_setup
+    p3_worldKeyChanged
+    p3_tileWidth
+    p3_tileHeight
+    p3_tileClicked
+    p3_drawBefore
+    p3_drawTile
+    p3_drawSelectedTile
+    p3_drawAfter
+*/
+
+const things = [
+  [172,227,131],
+  [172,227,131],
+  [172,227,131],
+  [155,103,60],
+  [172,227,131],
+  
+
 ];
 
+const forest = [
+  [172,227,131],
+  [143,167,104],
+  [116,127,74],
+  [59,79,48],
+
+];
+const colorScale = 0.1;
+
+function p3_preload() {}
+
+function p3_setup() {}
+
+let worldSeed;
+
+function p3_worldKeyChanged(key) {
+  worldSeed = XXH.h32(key, 0);
+  noiseSeed(worldSeed);
+  randomSeed(worldSeed);
+}
+
+function p3_tileWidth() {
+  return 32;
+}
+function p3_tileHeight() {
+  return 16;
+}
+
+let [tw, th] = [p3_tileWidth(), p3_tileHeight()];
+
+let clicks = {};
+
+function p3_tileClicked(i, j) {
+  let key = [i, j];
+  clicks[key] = 1 + (clicks[key] | 0);
+}
+
+function p3_drawBefore() {}
+
+function getNoiseColor(x, y, colorArray) {
+  // Generate a noise value based on x and y
+  let noiseValue = noise(x * colorScale, y * colorScale); 
+
+  // Map the noise value to an index in the color array
+  let index = floor(map(noiseValue, 0, 1, 0, colorArray.length));
+
+  // Retrieve and return the selected color from the array
+  return colorArray[index];
+}
+
+function p3_drawTile(i, j) {
+  noStroke();
+
+  if (i==0) {
+    // fill(240, 200);
+    // lake blue
+    const thingsColor = [128,128,128];
+    fill(...thingsColor);
+  } else if(i==-1){
+    const random = getNoiseColor(i, j, things);
+    //console.log(random);
+    if(random[0]==155){  
+      console.log(j);
+      fill(...random);
+    }else{
+      const forestColor = getNoiseColor(i, j, forest);
+      fill(...forestColor);
+    }
+    
+  }else {
+    // fill(255, 200);
+    // spring green
+    const forestColor = getNoiseColor(i, j, forest);
+    fill(...forestColor);
+  }
+
+  push();
+  
+  beginShape();
+  
+  vertex(-tw, 0);
+  vertex(0, th);
+  vertex(tw, 0);
+  vertex(0, -th);
+  endShape(CLOSE);
+
+  let n = floor(millis()/1000);
+  if (i==0 && /*(n)==(j)*/ j==n) {
+
+    fill(0,0,0);
+    beginShape();
+    vertex(-tw/1, -10);
+    vertex(0, th/2);
+    vertex(tw/2, 0);
+    vertex(-20, -th-1);
+    endShape(CLOSE);
+    
+    
+  }
+
+  pop();
+}
+
+
+function p3_drawSelectedTile(i, j) {
+  noFill();
+  stroke(0, 255, 0, 128);
+
+  beginShape();
+  vertex(-tw, 0);
+  vertex(0, th);
+  vertex(tw, 0);
+  vertex(0, -th);
+  endShape(CLOSE);
+
+  noStroke();
+  fill(0);
+  text("tile " + [i, j], 0, 0);
+}
+
+function p3_drawAfter() {}
