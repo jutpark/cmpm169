@@ -1,23 +1,17 @@
-"use strict";
+// sketch.js - purpose and description here
+// Author: Your Name
+// Date:
 
-/* global p5 */
-/* exported preload, setup, draw, mouseClicked */
+// Here is how you might set up an OOP p5.js project
+// Note that p5.js looks for a file called sketch.js
 
-// Project base code provided by {amsmith,ikarth}@ucsc.edu
-
-
-let tile_width_step_main; // A width step is half a tile's width
-let tile_height_step_main; // A height step is half a tile's height
-
-// Global variables. These will mostly be overwritten in setup().
-let tile_rows, tile_columns;
-let camera_offset;
-let camera_velocity;
+// Constants - User-servicable parts
 const containerId = "#canvas-container";
-/////////////////////////////
-// Transforms between coordinate systems
-// These are actually slightly weirder than in full 3d...
-/////////////////////////////
+
+// Globals
+let myInstance;
+let canvasContainer;
+var centerHorz, centerVert;
 
 function resizeScreen() {
   centerHorz = canvasContainer.width() / 2; // Adjusted for drawing logic
@@ -27,6 +21,18 @@ function resizeScreen() {
   // redrawCanvas(); // Redraw everything based on new size
 }
 
+let tile_width_step_main; // A width step is half a tile's width
+let tile_height_step_main; // A height step is half a tile's height
+
+// Global variables. These will mostly be overwritten in setup().
+let tile_rows, tile_columns;
+let camera_offset;
+let camera_velocity;
+
+/////////////////////////////
+// Transforms between coordinate systems
+// These are actually slightly weirder than in full 3d...
+/////////////////////////////
 function worldToScreen([world_x, world_y], [camera_x, camera_y]) {
   let i = (world_x - world_y) * tile_width_step_main;
   let j = (world_x + world_y) * tile_height_step_main;
@@ -70,6 +76,7 @@ function preload() {
   }
 }
 
+// setup() function is called once when the program starts
 function setup() {
   // place our canvas, making it fit our container
   canvasContainer = $(containerId);
@@ -97,6 +104,7 @@ function setup() {
   });
   resizeScreen();
 }
+
 function rebuildWorld(key) {
   if (window.p3_worldKeyChanged) {
     window.p3_worldKeyChanged(key);
@@ -107,18 +115,7 @@ function rebuildWorld(key) {
   tile_rows = Math.ceil(height / (tile_height_step_main * 2));
 }
 
-function mouseClicked() {
-  let world_pos = screenToWorld(
-    [0 - mouseX, mouseY],
-    [camera_offset.x, camera_offset.y]
-  );
-
-  if (window.p3_tileClicked) {
-    window.p3_tileClicked(world_pos[0], world_pos[1]);
-  }
-  return false;
-}
-
+// draw() function is called repeatedly, it's the main animation loop
 function draw() {
   // Keyboard controls!
   if (keyIsDown(LEFT_ARROW)) {
@@ -184,6 +181,18 @@ function draw() {
   if (window.p3_drawAfter) {
     window.p3_drawAfter();
   }
+}
+
+function mouseClicked() {
+  let world_pos = screenToWorld(
+    [0 - mouseX, mouseY],
+    [camera_offset.x, camera_offset.y]
+  );
+
+  if (window.p3_tileClicked) {
+    window.p3_tileClicked(world_pos[0], world_pos[1]);
+  }
+  return false;
 }
 
 // Display a discription of the tile at world_x, world_y.
