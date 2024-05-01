@@ -17,11 +17,11 @@
 const things = [
   [128,128,128],
   [155,103,60],
-  [88,57,39],
-  [38,25,25],
+  [136,140,141],
+  [173,216,230],
 ];
 const forest = [
-  [172,227,131],
+  [91,135,49],
   [143,167,104],
   [116,127,74],
   [59,79,48],
@@ -72,18 +72,10 @@ function getNoiseColor(x, y, colorArray) {
 
 function p3_drawTile(i, j) {
   noStroke();
-
-  if (XXH.h32("tile:" + [i, j], worldSeed) % 30 == 0) {
-    // fill(240, 200);
-    // lake blue
-    const thingsColor = getNoiseColor(i, j, things);
-    fill(...thingsColor);
-  } else {
-    // fill(255, 200);
-    // spring green
-    const forestColor = getNoiseColor(i, j, forest);
+  
+  const forestColor = getNoiseColor(i, j, forest);
     fill(...forestColor);
-  }
+  
 
   push();
 
@@ -95,27 +87,44 @@ function p3_drawTile(i, j) {
   endShape(CLOSE);
 
   let n = clicks[[i, j]] | 0;
-  if (n % 2 == 1) {
 
-    
-    translate(0, -10);
-    stroke(0, 0, 100, 128);
-    line(0,0,0,20);
-    line(0,7,8,10);
-    line(0,7,-8,10);
-    line(0,20,10,40);
-    line(0,20,-10,40);
-    
-    stroke(0,0,0,0);
-    
-    fill(255, 255, 100, 256);
-    ellipse(0, 0, 10, 10);
-    fill(0, 0, 0);
-    ellipse(2, 0, 2, 2);
-    ellipse(-2, 0, 2, 2);
-    
-    
+  if (n % 5 == 1) {
+
+    fill(things[1]);
+    beginShape();
+    vertex(-tw, 0);
+    vertex(0, th);
+    vertex(tw, 0);
+    vertex(0, -th);
+    endShape(CLOSE);
+
+
+  }else if(n % 5 == 2){
+    fill(things[2]);
+    beginShape();
+    vertex(-tw, 0);
+    vertex(0, th);
+    vertex(tw, 0);
+    vertex(0, -th);
+    endShape(CLOSE);
+  }else if(n % 5 == 3){
+    fill(things[2]);
+    beginShape();
+    vertex(-tw, 0);
+    vertex(0, th);
+    vertex(tw, 0);
+    vertex(0, -th);
+    endShape(CLOSE);
+    fill(things[3]);
+    square(0,0,3);
+    square(-8,8,3);
+    square(8,-8,3);
+    square(-8,-8,3);
+    square(0,8,3);
+    square(4,-8,3);
+
   }
+  
 
   pop();
 }
