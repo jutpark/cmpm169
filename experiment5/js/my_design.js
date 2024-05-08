@@ -34,7 +34,7 @@ function getInspirations() {
       fg: []
     }
     
-    for(let i = 0; i < 100; i++) {
+    for(let i = 0; i < 400; i++) {
       design.fg.push({x: random(width),
                       y: random(height),
                       w: random(width/2),
